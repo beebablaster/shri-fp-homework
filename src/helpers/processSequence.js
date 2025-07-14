@@ -14,38 +14,47 @@
  * Иногда промисы от API будут приходить в состояние rejected, (прямо как и API в реальной жизни)
  * Ответ будет приходить в поле {result}
  */
- import Api from '../tools/api';
+import {__, allPass, gte, length, lte, match, pipe} from 'ramda';
+import Api from '../tools/api';
 
- const api = new Api();
+const api = new Api();
 
- /**
-  * Я – пример, удали меня
-  */
- const wait = time => new Promise(resolve => {
-     setTimeout(resolve, time);
- })
+const isLengthGt2 = pipe(length, gte(__, 3));
+const isLengthLt10 = pipe(length, lte(__, 9));
+const isPositive = (str) => parseFloat(str) > 0;
+const isNumber = match(/^\d*\.?\d*$/);
 
- const processSequence = ({value, writeLog, handleSuccess, handleError}) => {
-     /**
-      * Я – пример, удали меня
-      */
-     writeLog(value);
+const validate = allPass([isLengthGt2, isLengthLt10, isPositive, pipe(isNumber, Boolean)]);
 
-     api.get('https://api.tech/numbers/base', {from: 2, to: 10, number: '01011010101'}).then(({result}) => {
-         writeLog(result);
-     });
+const round = (num) => Math.round(num);
 
-     wait(2500).then(() => {
-         writeLog('SecondLog')
+const processSequence = ({ value, writeLog, handleSuccess, handleError }) => {
+    writeLog(value);
 
-         return wait(1500);
-     }).then(() => {
-         writeLog('ThirdLog');
+    if (!validate(value)) {
+        handleError('ValidationError');
+        return;
+    }
 
-         return wait(400);
-     }).then(() => {
-         handleSuccess('Done');
-     });
- }
+    const number = parseFloat(value);
+    const rounded = round(number);
+    writeLog(String(rounded));
+
+    api.get('https://api.tech/numbers/base', { number: String(rounded), from: 10, to: 2 })
+        .then(({ result }) => {
+            writeLog(result);
+            const len = result.length;
+            writeLog(String(len));
+            const squared = Math.pow(len, 2);
+            writeLog(String(squared));
+            const mod3 = squared % 3;
+            writeLog(String(mod3));
+            return api.get(`https://animals.tech/${mod3}`)({});
+        })
+        .then(({ result }) => {
+            handleSuccess(result);
+        })
+        .catch(handleError);
+};
 
 export default processSequence;
